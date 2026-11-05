@@ -383,60 +383,20 @@ struct TurnRow: View {
     }
 }
 
-/// One line of text that fits, or scrolls slowly right-to-left like a news ticker when it
-/// doesn't (with soft faded edges). Short text just sits still.
-/// The scroll is a repeating offset animation, so it's drawn by the renderer without
-/// re-running layout every frame (a TimelineView version pegged the CPU and froze the app).
+/// One line of text, cut off with "…" when it doesn't fit; the full text shows on hover.
+/// (The scrolling ticker versions kept SwiftUI re-running layout every frame and froze the
+/// app twice. A Core Animation ticker can replace this later.)
 struct Marquee: View {
     let text: String
     var maxWidth: CGFloat = 170
-    var speed: Double = 22          // points per second
-    private let gap: CGFloat = 36
-    @State private var textWidth: CGFloat = 0
-    @State private var scrolled = false
-
-    private var overflow: Bool { textWidth > maxWidth + 0.5 }
 
     var body: some View {
-        HStack(spacing: gap) {
-            Text(text).fixedSize()
-            if overflow { Text(text).fixedSize() }
-        }
-        .offset(x: scrolled ? -(textWidth + gap) : 0)
-        // Explicit width: a maxWidth frame inside a fixedSize parent let the label grow past the
-        // 196-pt sidebar and push the whole column off the window's left edge.
-        .frame(width: textWidth == 0 ? maxWidth : min(textWidth, maxWidth), alignment: .leading)
-        .clipped()
-        .mask(LinearGradient(stops: overflow ? [.init(color: .clear, location: 0), .init(color: .black, location: 0.06),
-                                                .init(color: .black, location: 0.94), .init(color: .clear, location: 1)]
-                                             : [.init(color: .black, location: 0), .init(color: .black, location: 1)],
-                             startPoint: .leading, endPoint: .trailing))
-        // Measure the full text width off to the side; a background never affects layout.
-        .background(alignment: .leading) {
-            Text(text).fixedSize().hidden()
-                .background(GeometryReader { g in
-                    Color.clear
-                        .onAppear { setWidth(g.size.width) }
-                        .onChange(of: g.size.width) { _, w in setWidth(w) }
-                })
-        }
-        .help(text)
-    }
-
-    private func setWidth(_ w: CGFloat) {
-        guard abs(w - textWidth) > 0.5 else { return }
-        textWidth = w
-        restart()
-    }
-
-    private func restart() {
-        var t = Transaction(); t.disablesAnimations = true
-        withTransaction(t) { scrolled = false }
-        guard overflow else { return }
-        let duration = Double(textWidth + gap) / speed
-        DispatchQueue.main.async {
-            withAnimation(.linear(duration: duration).delay(1.5).repeatForever(autoreverses: false)) { scrolled = true }
-        }
+        Text(text)
+            .lineLimit(1)
+            .truncationMode(.tail)
+            .frame(maxWidth: maxWidth, alignment: .leading)
+            .fixedSize(horizontal: false, vertical: true)
+            .help(text)
     }
 }
 
