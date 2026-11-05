@@ -174,7 +174,7 @@ struct TargetPicker: View {
             HStack(spacing: 5) {
                 LiveDot(connected: state.targetConnected)
                 if state.isPinned { Image(systemName: "pin.fill").font(.system(size: 8.5)) }
-                Text(state.targetLabel).lineLimit(1)
+                Marquee(text: state.targetDisplayLabel, maxWidth: 110)
                 Image(systemName: "chevron.down").font(.system(size: 7.5, weight: .semibold)).opacity(0.7)
             }
             .font(.system(size: 11)).foregroundStyle(Theme.muted)
@@ -383,6 +383,101 @@ struct TurnRow: View {
     }
 }
 
+/// One line of text that fits, or scrolls slowly right-to-left like a news ticker when it
+/// doesn't (with soft faded edges). Short text just sits still.
+/// The scroll is a repeating offset animation, so it's drawn by the renderer without
+/// re-running layout every frame (a TimelineView version pegged the CPU and froze the app).
+struct Marquee: View {
+    let text: String
+    var maxWidth: CGFloat = 170
+    var speed: Double = 22          // points per second
+    private let gap: CGFloat = 36
+    @State private var textWidth: CGFloat = 0
+    @State private var scrolled = false
+
+    private var overflow: Bool { textWidth > maxWidth + 0.5 }
+
+    var body: some View {
+        HStack(spacing: gap) {
+            Text(text).fixedSize()
+            if overflow { Text(text).fixedSize() }
+        }
+        .offset(x: scrolled ? -(textWidth + gap) : 0)
+        // Explicit width: a maxWidth frame inside a fixedSize parent let the label grow past the
+        // 196-pt sidebar and push the whole column off the window's left edge.
+        .frame(width: textWidth == 0 ? maxWidth : min(textWidth, maxWidth), alignment: .leading)
+        .clipped()
+        .mask(LinearGradient(stops: overflow ? [.init(color: .clear, location: 0), .init(color: .black, location: 0.06),
+                                                .init(color: .black, location: 0.94), .init(color: .clear, location: 1)]
+                                             : [.init(color: .black, location: 0), .init(color: .black, location: 1)],
+                             startPoint: .leading, endPoint: .trailing))
+        // Measure the full text width off to the side; a background never affects layout.
+        .background(alignment: .leading) {
+            Text(text).fixedSize().hidden()
+                .background(GeometryReader { g in
+                    Color.clear
+                        .onAppear { setWidth(g.size.width) }
+                        .onChange(of: g.size.width) { _, w in setWidth(w) }
+                })
+        }
+        .help(text)
+    }
+
+    private func setWidth(_ w: CGFloat) {
+        guard abs(w - textWidth) > 0.5 else { return }
+        textWidth = w
+        restart()
+    }
+
+    private func restart() {
+        var t = Transaction(); t.disablesAnimations = true
+        withTransaction(t) { scrolled = false }
+        guard overflow else { return }
+        let duration = Double(textWidth + gap) / speed
+        DispatchQueue.main.async {
+            withAnimation(.linear(duration: duration).delay(1.5).repeatForever(autoreverses: false)) { scrolled = true }
+        }
+    }
+}
+
+/// "Sending in 3s · Edit · Cancel · Send now" for a voice transcript under review.
+/// `onDark` styles it for the dark pill.
+struct ReviewBar: View {
+    @ObservedObject var state: AppState
+    var onDark = false
+    var onEdit: (() -> Void)? = nil
+
+    var body: some View {
+        if state.reviewText != nil {
+            TimelineView(.periodic(from: .now, by: 0.25)) { ctx in
+                HStack(spacing: 10) {
+                    Text(status(now: ctx.date)).foregroundStyle(onDark ? .white.opacity(0.6) : Theme.muted)
+                    Spacer(minLength: 6)
+                    if state.reviewEndsAt != nil, let onEdit {
+                        link("Edit") { state.pauseReview(); onEdit() }
+                    }
+                    link("Cancel") { state.cancelReview() }
+                    link("Send now", strong: true) { state.commitReview() }
+                }
+                .font(.system(size: 11.5))
+            }
+        }
+    }
+
+    private func status(now: Date) -> String {
+        guard let end = state.reviewEndsAt else { return "Edited. Press Return to send." }
+        let left = max(0, Int(ceil(end.timeIntervalSince(now))))
+        return "Sending in \(left)s · ⌥Space to redo"
+    }
+
+    private func link(_ title: String, strong: Bool = false, _ action: @escaping () -> Void) -> some View {
+        Button(title, action: action)
+            .buttonStyle(.plain)
+            .fontWeight(strong ? .semibold : .regular)
+            .foregroundStyle(strong ? Theme.accent : (onDark ? .white.opacity(0.75) : Theme.ink.opacity(0.75)))
+    }
+}
+
 struct Composer: View {
     @ObservedObject var state: AppState
     @FocusState private var focused: Bool
@@ -408,6 +503,7 @@ struct Composer: View {
                     Text("Attached to your next message").font(.system(size: 11)).foregroundStyle(Theme.muted)
                 }
             }
+            ReviewBar(state: state, onEdit: { focused = true })
             HStack(spacing: 10) {
                 TextField("Type to Claude, or hold ⌥Space to talk", text: $state.typed, axis: .vertical)
                     .textFieldStyle(.plain)
@@ -677,6 +773,15 @@ struct SettingsView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 26) {
                 Text("Settings").font(Theme.display(26)).foregroundStyle(Theme.ink).padding(.top, 28)
+
+                group("Review before sending") {
+                    Toggle("Hold each voice message so I can fix or cancel it", isOn: $state.reviewBeforeSend)
+                    Picker("Wait", selection: $state.reviewDelay) {
+                        Text("2 seconds").tag(2.0); Text("3 seconds").tag(3.0); Text("5 seconds").tag(5.0)
+                    }
+                    .disabled(!state.reviewBeforeSend)
+                    note("The transcript lands in the input box and sends on its own after the wait. Typing in it pauses the countdown (Return sends). ⌥Space again throws it away and records a new one.")
+                }
 
                 group("Respond with voice") {
                     Toggle("Read Claude's replies aloud", isOn: $state.speakReplies)

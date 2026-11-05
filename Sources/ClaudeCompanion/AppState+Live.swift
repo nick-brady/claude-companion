@@ -31,6 +31,15 @@ extension AppState {
         }
     }
 
+    /// Footer/pill label with the iTerm tab title when we know it:
+    /// "Job Search — Databricks certification prep · live". Scrolls as a ticker when long.
+    var targetDisplayLabel: String {
+        guard case .live(let s) = target else { return targetLabel }
+        let title = (s.title ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        let showTitle = !title.isEmpty && title.caseInsensitiveCompare(s.folderName) != .orderedSame
+        return "\(s.folderName)\(showTitle ? " — \(title)" : "") · \(s.canPush ? "live" : "iTerm")"
+    }
+
     /// The targeted session is live right now (its channel has checked in recently).
     var targetIsLive: Bool {
         if case .live(let s) = target { return s.canPush }

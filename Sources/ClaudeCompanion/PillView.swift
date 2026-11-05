@@ -239,7 +239,7 @@ struct CaptionCard: View {
             HStack(spacing: 4) {
                 LiveDot(connected: state.targetConnected, ring: .white.opacity(0.28))
                 if state.isPinned { Image(systemName: "pin.fill").font(.system(size: 8.5)) }
-                Text(state.targetLabel).lineLimit(1)
+                Marquee(text: state.targetDisplayLabel, maxWidth: 150)
                 Spacer(minLength: 8)
                 Image(systemName: state.speakReplies ? "speaker.wave.2.fill" : "speaker.slash")
                 Text(state.speakReplies ? "voice" : "text only")
@@ -261,6 +261,7 @@ struct CaptionCard: View {
             } else if state.phase == .listening {
                 Text("Listening…").font(.system(size: 12.5)).foregroundStyle(.white.opacity(0.4))
             }
+            ReviewBar(state: state, onDark: true, onEdit: { state.onSummon?() })
             if !state.reply.isEmpty {
                 ScrollViewReader { proxy in
                     ScrollView {
