@@ -369,17 +369,11 @@ struct TurnRow: View {
                         .foregroundStyle(Theme.muted)
                 }
             }
-            Text(markdown(turn.text))
-                .font(.system(size: turn.role == .you ? 14 : 14.5))
-                .foregroundStyle(turn.role == .you ? Theme.ink.opacity(0.62) : Theme.ink)
-                .lineSpacing(3)
+            MarkdownView(text: turn.text,
+                         style: .window(size: turn.role == .you ? 14 : 14.5,
+                                        text: turn.role == .you ? Theme.ink.opacity(0.62) : Theme.ink))
                 .textSelection(.enabled)
-                .frame(maxWidth: .infinity, alignment: .leading)
         }
-    }
-
-    private func markdown(_ s: String) -> AttributedString {
-        (try? AttributedString(markdown: s, options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace))) ?? AttributedString(s)
     }
 }
 

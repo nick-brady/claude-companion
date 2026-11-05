@@ -265,12 +265,8 @@ struct CaptionCard: View {
             if !state.reply.isEmpty {
                 ScrollViewReader { proxy in
                     ScrollView {
-                        Text(markdown(state.reply))
-                            .font(.system(size: 14))
-                            .foregroundStyle(.white.opacity(0.94))
-                            .lineSpacing(2)
+                        MarkdownView(text: state.reply, style: .pill)
                             .textSelection(.enabled)
-                            .frame(maxWidth: .infinity, alignment: .leading)
                         Color.clear.frame(height: 1).id("end")
                     }
                     .frame(maxHeight: state.expanded ? 320 : 150)
@@ -315,10 +311,6 @@ struct CaptionCard: View {
         )
         .onHover { state.hovering = $0 }
         .reportFrame()
-    }
-
-    private func markdown(_ s: String) -> AttributedString {
-        (try? AttributedString(markdown: s, options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace))) ?? AttributedString(s)
     }
 }
 
