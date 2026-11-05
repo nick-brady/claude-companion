@@ -607,11 +607,12 @@ final class AppState: ObservableObject {
 
     func attachDraggedRegion() {
         Task {
-            if let img = await ScreenCapture.dragRegion(),
-               let a = ScreenCapture.makeAttachment(img, label: "region the user selected") {
-                attachments.append(a)
-                showCaption()
-            }
+            // dragRegion / makeAttachment log the reason when they return nil (cancelled, unreadable
+            // capture, or an encode that produced no pixel data); nothing is attached in that case.
+            guard let img = await ScreenCapture.dragRegion(),
+                  let a = ScreenCapture.makeAttachment(img, label: "region the user selected") else { return }
+            attachments.append(a)
+            showCaption()
         }
     }
 
