@@ -57,7 +57,25 @@ final class AppState: ObservableObject {
     @Published var activity: String?
     @Published var level: Float = 0
     @Published var attachments: [Attachment] = []
-    @Published var typed = ""
+    @Published var typed = "" {
+        didSet {
+            // Editing a transcript under review pauses its auto-send; clearing it cancels.
+            guard let r = reviewText, typed != r else { return }
+            if typed.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { cancelReview() }
+            else if reviewEndsAt != nil { reviewEndsAt = nil; DiagLog.log("review.paused", "edited") }
+        }
+    }
+    /// Transcript waiting to be sent (review window). nil = nothing pending.
+    @Published var reviewText: String?
+    /// When the pending transcript auto-sends. nil while paused (you edited it).
+    @Published var reviewEndsAt: Date?
+    /// "Review before sending": hold each voice transcript a few seconds so it can be fixed or cancelled.
+    @Published var reviewBeforeSend: Bool = UserDefaults.standard.object(forKey: "reviewBeforeSend") as? Bool ?? true {
+        didSet { UserDefaults.standard.set(reviewBeforeSend, forKey: "reviewBeforeSend") }
+    }
+    @Published var reviewDelay: Double = UserDefaults.standard.object(forKey: "reviewDelay") as? Double ?? 3 {
+        didSet { UserDefaults.standard.set(reviewDelay, forKey: "reviewDelay") }
+    }
     @Published var sessionLabel = ""
     @Published var screenshotMode: ScreenshotMode {
         didSet { UserDefaults.standard.set(screenshotMode.rawValue, forKey: "screenshotMode") }
@@ -262,6 +280,10 @@ final class AppState: ObservableObject {
 
     func hotkeyDown() {
         if finishing { DiagLog.log("hotkey.down", "ignored: still finishing previous recording"); return }
+        if reviewText != nil, phase != .listening {
+            DiagLog.log("hotkey.down", "re-record: dropping transcript under review")
+            cancelReview()
+        }
         if listener.isRecording && phase != .listening && !starting {
             // Something changed the phase mid-recording; the recorder is the source of truth.
             DiagLog.log("hotkey.down", "recorder still running while phase=\(phase); restoring listening")
@@ -365,10 +387,59 @@ final class AppState: ObservableObject {
             return
         }
         heard = text
-        phase = .thinking
         finishing = false
+        if reviewBeforeSend {
+            phase = .idle
+            releaseHeld(sending: false)
+            beginReview(text)
+            return
+        }
+        phase = .thinking
         releaseHeld(sending: true)
         await send(text)
+    }
+
+    // MARK: - Review before sending
+
+    /// Put the transcript in the input box and send it after `reviewDelay` seconds unless
+    /// it's edited (pauses), cancelled, or re-recorded (⌥Space again replaces it).
+    func beginReview(_ text: String) {
+        typed = text                 // set before reviewText so didSet doesn't treat it as an edit
+        reviewText = text
+        let ends = Date().addingTimeInterval(reviewDelay)
+        reviewEndsAt = ends
+        showCaption()
+        DiagLog.log("review.start", "\(reviewDelay)s, \(text.count) chars")
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: UInt64((self?.reviewDelay ?? 3) * 1_000_000_000))
+            guard let self, self.reviewText != nil, self.reviewEndsAt == ends else { return }
+            self.commitReview()
+        }
+    }
+
+    /// Send what's in the input box now (the transcript, edited or not).
+    func commitReview() {
+        guard reviewText != nil else { return }
+        DiagLog.log("review.send")
+        sendTyped()
+    }
+
+    /// Drop the pending transcript without sending.
+    func cancelReview() {
+        guard reviewText != nil else { return }
+        DiagLog.log("review.cancel")
+        reviewText = nil
+        reviewEndsAt = nil
+        typed = ""
+        heard = ""
+        scheduleCaptionHide(after: 1)
+    }
+
+    /// Stop the countdown and keep the text for editing (Return sends).
+    func pauseReview() {
+        guard reviewText != nil else { return }
+        reviewEndsAt = nil
+        DiagLog.log("review.paused", "edit")
     }
 
     func cancelListening() {
@@ -383,6 +454,8 @@ final class AppState: ObservableObject {
     }
 
     func sendTyped() {
+        reviewText = nil
+        reviewEndsAt = nil
         let t = typed.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !t.isEmpty else { return }
         typed = ""
