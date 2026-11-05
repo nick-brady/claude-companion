@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleIdentifier</key><string>com.nickbrady.claudecompanion</string>
+    <key>CFBundleName</key><string>Claude Companion</string>
+    <key>CFBundleDisplayName</key><string>Claude Companion</string>
+    <key>CFBundleExecutable</key><string>ClaudeCompanion</string>
+    <key>CFBundlePackageType</key><string>APPL</string>
+    <key>CFBundleShortVersionString</key><string>0.1.0</string>
+    <key>CFBundleVersion</key><string>1</string>
+    <key>LSMinimumSystemVersion</key><string>14.0</string>
+    <key>LSUIElement</key><true/>
+    <key>NSHighResolutionCapable</key><true/>
+    <key>NSMicrophoneUsageDescription</key>
+    <string>Claude Companion listens only while you hold the talk hotkey (or click the mic), so it can transcribe what you say and send it to Claude Code.</string>
+    <key>NSAppleEventsUsageDescription</key>
+    <string>Only used if you pin an iTerm2 tab: Claude Companion types your spoken message into that tab, exactly as if you had typed it.</string>
+    <key>NSSpeechRecognitionUsageDescription</key>
+    <string>Your speech is transcribed on this Mac (on-device recognition) and the text is sent to Claude Code.</string>
+</dict>
+</plist>

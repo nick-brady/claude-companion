@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "companion": {
+      "command": "/Users/nicholasbrady/.nvm/versions/node/v20.17.0/bin/node",
+      "args": ["/Users/nicholasbrady/Documents/self/claude_companion/integration/channel/companion-channel.mjs"]
+    }
+  }
+}

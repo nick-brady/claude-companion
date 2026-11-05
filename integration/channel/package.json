@@ -1,0 +1,9 @@
+{
+  "name": "claude-companion-channel",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.2"
+  }
+}

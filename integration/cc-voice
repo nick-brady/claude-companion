@@ -1,0 +1,12 @@
+#!/bin/zsh
+# Start Claude Code with the Companion voice channel for THIS session only.
+# Nothing is written to your global Claude Code config: the MCP server and the two
+# hooks are passed with --mcp-config / --settings for this launch.
+#   cc-voice                 # new session in the current folder
+#   cc-voice --resume <id>   # any normal claude flags pass through
+DIR="${0:A:h}"
+exec claude \
+  --mcp-config "$DIR/mcp.json" \
+  --settings "$DIR/settings.json" \
+  --dangerously-load-development-channels server:companion \
+  "$@"

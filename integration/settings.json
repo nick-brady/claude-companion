@@ -1,0 +1,10 @@
+{
+  "hooks": {
+    "Stop": [
+      { "hooks": [ { "type": "command", "command": "\"/Users/nicholasbrady/Documents/self/claude_companion/integration/hooks/notify-app.sh\" stop", "timeout": 5 } ] }
+    ],
+    "PreToolUse": [
+      { "matcher": "*", "hooks": [ { "type": "command", "command": "\"/Users/nicholasbrady/Documents/self/claude_companion/integration/hooks/notify-app.sh\" activity", "timeout": 5 } ] }
+    ]
+  }
+}
